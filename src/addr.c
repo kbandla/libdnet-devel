@@ -98,6 +98,8 @@ addr_net(const struct addr *a, struct addr *b)
 			memset(b->addr_data8 + 3, 0, 3);
 		b->addr_bits = ETH_ADDR_BITS;
 	} else if (a->addr_type == ADDR_TYPE_IP6) {
+	  if (a->addr_bits > IP6_ADDR_BITS)
+	    return (-1);
 		b->addr_type = ADDR_TYPE_IP6;
 		b->addr_bits = IP6_ADDR_BITS;
 		memset(&b->addr_ip6, 0, IP6_ADDR_LEN);
@@ -394,8 +396,17 @@ addr_stob(const struct sockaddr *sa, uint16_t *bits)
 
 #ifdef HAVE_SOCKADDR_IN6
 	if (sa->sa_family == AF_INET6) {
-		len = IP6_ADDR_LEN;
 		p = (u_char *)&so->sin6.sin6_addr;
+#ifdef HAVE_SOCKADDR_SA_LEN
+		len = sa->sa_len - ((void *) p - (void *) sa);
+		/* Handles the special case of sa->sa_len == 0. */
+		if (len < 0)
+			len = 0;
+		else if (len > IP6_ADDR_LEN)
+			len = IP6_ADDR_LEN;
+#else
+		len = IP6_ADDR_LEN;
+#endif
 	} else
 #endif
 	{

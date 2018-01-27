@@ -168,7 +168,7 @@ route_msg(route_t *r, int type, char intf_name[INTF_NAME_LEN], struct addr *dst,
 				errno = ESRCH;
 				return (-1);
 			}
-			strlcpy(intf_name, namebuf, sizeof(intf_name));
+			strlcpy(intf_name, namebuf, INTF_NAME_LEN);
 		}
 	}
 	return (0);
@@ -335,8 +335,11 @@ route_loop(route_t *r, route_handler callback, void *arg)
 	 * p. 494, function get_rtaddrs. */
 	for (ret = 0; next < lim; next += rtm->rtm_msglen) {
 		char namebuf[IF_NAMESIZE];
+		sa_family_t sfam;
 		rtm = (struct rt_msghdr *)next;
 		sa = (struct sockaddr *)(rtm + 1);
+		/* peek at address family */
+		sfam = sa->sa_family;
 
 		if (if_indextoname(rtm->rtm_index, namebuf) == NULL)
 			continue;
@@ -362,6 +365,8 @@ route_loop(route_t *r, route_handler callback, void *arg)
 
 		if (rtm->rtm_addrs & RTA_NETMASK) {
 			sa = NEXTSA(sa);
+			/* FreeBSD for IPv6 uses a different AF for netmasks. Force the same one. */
+			sa->sa_family = sfam;
 			if (addr_stob(sa, &entry.route_dst.addr_bits) < 0)
 				continue;
 		}
